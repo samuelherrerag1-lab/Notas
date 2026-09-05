@@ -70,12 +70,16 @@ export async function renderCompositeCanvas(
   if (textBlocks && textBlocks.length > 0) {
     for (const block of textBlocks) {
       ctx.save();
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.92)';
       ctx.strokeStyle = '#E5E5EA';
       ctx.lineWidth = 1;
 
       const pad = 12;
-      const blockHeight = block.type === 'checklist' ? (block.items?.length || 1) * 26 + 36 : 90;
+      const fontSize = block.fontSize || (block.hierarchy === 'title' ? 22 : block.hierarchy === 'subtitle' ? 18 : 15);
+      const lines = block.type === 'text' ? (block.content || '').split('\n') : [];
+      const lineHeight = Math.round(fontSize * 1.35);
+      const textBlockHeight = Math.max(54, lines.length * lineHeight + pad * 2 + 10);
+      const blockHeight = block.type === 'checklist' ? (block.items?.length || 1) * 28 + 36 : textBlockHeight;
 
       ctx.beginPath();
       if (typeof ctx.roundRect === 'function') {
@@ -86,31 +90,34 @@ export async function renderCompositeCanvas(
       ctx.fill();
       ctx.stroke();
 
+      const fontStyle = block.isItalic ? 'italic ' : '';
+      const fontWeight = block.isBold || block.hierarchy === 'title' || block.hierarchy === 'subtitle' ? 'bold ' : '';
+      const textColor = block.color || '#1C1C1E';
+
       if (block.type === 'text') {
-        ctx.fillStyle = '#1C1C1E';
-        ctx.font = '14px -apple-system, sans-serif';
-        const lines = (block.content || '').split('\n');
+        ctx.fillStyle = textColor;
+        ctx.font = `${fontStyle}${fontWeight}${fontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
         lines.forEach((line, idx) => {
-          ctx.fillText(line, block.x + pad, block.y + pad + 16 + idx * 20);
+          ctx.fillText(line, block.x + pad, block.y + pad + fontSize + idx * lineHeight);
         });
       } else if (block.type === 'checklist' && block.items) {
-        ctx.font = 'bold 11px -apple-system, sans-serif';
+        ctx.font = 'bold 10px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
         ctx.fillStyle = '#8E8E93';
-        ctx.fillText('LISTA DE TAREAS', block.x + pad, block.y + pad + 8);
+        ctx.fillText('LISTA DE TAREAS', block.x + pad, block.y + pad + 6);
 
-        ctx.font = '13px -apple-system, sans-serif';
+        ctx.font = `${fontStyle}${fontWeight}${fontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
         block.items.forEach((item, idx) => {
-          const itemY = block.y + pad + 28 + idx * 24;
+          const itemY = block.y + pad + 26 + idx * 24;
 
           ctx.strokeStyle = item.completed ? '#E4A11B' : '#8E8E93';
           ctx.fillStyle = item.completed ? '#E4A11B' : 'white';
           ctx.lineWidth = 1.5;
-          ctx.strokeRect(block.x + pad, itemY - 11, 14, 14);
+          ctx.strokeRect(block.x + pad, itemY - 12, 14, 14);
           if (item.completed) {
-            ctx.fillRect(block.x + pad + 2, itemY - 9, 10, 10);
+            ctx.fillRect(block.x + pad + 2, itemY - 10, 10, 10);
           }
 
-          ctx.fillStyle = item.completed ? '#AEAEB2' : '#1C1C1E';
+          ctx.fillStyle = item.completed ? '#AEAEB2' : textColor;
           ctx.fillText(item.text || '...', block.x + pad + 22, itemY);
 
           if (item.completed && item.text) {

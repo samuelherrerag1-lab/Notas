@@ -6,6 +6,8 @@ export type EraserMode = 'pixel' | 'stroke';
 
 export type DocumentType = 'pdf' | 'docx' | 'xlsx' | 'csv' | 'none';
 
+export type TextHierarchy = 'title' | 'subtitle' | 'body';
+
 export interface Point {
   x: number;
   y: number;
@@ -47,6 +49,9 @@ export interface NoteTextBlock {
   content?: string;
   items?: ChecklistItem[];
   fontSize?: number;
+  hierarchy?: TextHierarchy;
+  isBold?: boolean;
+  isItalic?: boolean;
   color?: string;
 }
 

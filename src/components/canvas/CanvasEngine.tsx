@@ -75,6 +75,9 @@ export const CanvasEngine = forwardRef<CanvasEngineHandle, CanvasEngineProps>(
     const transformRef = useRef<ViewportTransform>(transform);
     transformRef.current = transform;
 
+    // Estado para controlar edición de texto activa
+    const [isEditingText, setIsEditingText] = useState(false);
+
     // Gestor de gestos multitáctiles y rechazo de palma
     const gestureManagerRef = useRef<TouchGestureManager | null>(null);
 
@@ -499,7 +502,9 @@ export const CanvasEngine = forwardRef<CanvasEngineHandle, CanvasEngineProps>(
             <TextLayer
               textBlocks={textBlocks}
               onTextBlocksChange={onTextBlocksChange}
+              scale={transform.scale}
               isDrawing={isDrawingRef.current}
+              onEditingStateChange={setIsEditingText}
             />
           )}
 
@@ -517,7 +522,7 @@ export const CanvasEngine = forwardRef<CanvasEngineHandle, CanvasEngineProps>(
             onPointerUp={handlePointerUp}
             onPointerCancel={handlePointerUp}
             onPointerLeave={handlePointerUp}
-            className="absolute inset-0 z-25 touch-none"
+            className={`absolute inset-0 z-25 touch-none ${isEditingText ? 'pointer-events-none' : ''}`}
           />
         </div>
 
