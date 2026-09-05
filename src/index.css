@@ -1,0 +1,50 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+  --ios-yellow: #E4A11B;
+  --ios-bg: #F2F2F7;
+  --ios-card: #FFFFFF;
+}
+
+/* Optimización para táctil en Chromebooks y pantallas táctiles */
+* {
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+
+input, textarea {
+  user-select: text;
+}
+
+/* Scrollbars sutiles estilo macOS/iOS */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.15);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.25);
+}
+
+/* Desactivar gestos del navegador en áreas de dibujo */
+.touch-canvas-area {
+  touch-action: none;
+  overscroll-behavior: none;
+}
+
+/* Animaciones suaves */
+.transition-card {
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
