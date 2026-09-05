@@ -1,4 +1,4 @@
-﻿import { BackgroundTemplate, ViewportTransform } from '../../types';
+import { BackgroundTemplate, ViewportTransform } from '../../types';
 
 export interface BackgroundRenderOptions {
   transform?: ViewportTransform;
@@ -34,9 +34,10 @@ export class BackgroundRenderer {
       marginLeft = 64,
     } = options;
 
-    const lineColor = options.lineColor || (isDark ? '#2C2C2E' : '#E5E5EA');
-    const marginColor = options.marginColor || (isDark ? 'rgba(255, 69, 58, 0.45)' : 'rgba(255, 105, 97, 0.35)');
-    const dotColor = options.dotColor || (isDark ? '#3A3A3C' : '#C7C7CC');
+    // Colores de rejilla elegantes: En modo oscuro son sutiles (#242428) para no saturar la vista
+    const lineColor = options.lineColor || (isDark ? 'rgba(255, 255, 255, 0.08)' : '#E5E5EA');
+    const marginColor = options.marginColor || (isDark ? 'rgba(255, 69, 58, 0.4)' : 'rgba(255, 105, 97, 0.35)');
+    const dotColor = options.dotColor || (isDark ? 'rgba(255, 255, 255, 0.15)' : '#C7C7CC');
 
     ctx.save();
 

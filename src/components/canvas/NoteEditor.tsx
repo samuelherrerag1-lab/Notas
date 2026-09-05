@@ -159,20 +159,20 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
   };
 
   return (
-    <div className="relative w-screen h-screen flex flex-col bg-ios-paper dark:bg-ios-darkBg text-ios-text dark:text-ios-darkText overflow-hidden select-none font-sans">
+    <div className="relative w-screen h-screen flex flex-col bg-ios-paper dark:bg-[#121214] text-ios-text dark:text-white overflow-hidden select-none font-sans">
       {/* 1. Barra Superior Minimalista Estilo Apple Notes */}
-      <header className="h-14 shrink-0 px-4 flex items-center justify-between bg-ios-card/80 dark:bg-ios-darkCard/80 backdrop-blur-md border-b border-ios-border/80 dark:border-ios-darkBorder/80 z-40 transition-colors">
+      <header className="h-14 shrink-0 px-4 flex items-center justify-between bg-ios-card/85 dark:bg-[#1C1C1E]/85 backdrop-blur-xl border-b border-ios-border/80 dark:border-white/[0.08] z-40 transition-colors">
         <div className="flex items-center gap-3 flex-1 min-w-0">
           <button
             type="button"
             onClick={onBack}
-            className="flex items-center gap-1 text-ios-yellow hover:text-ios-yellowHover font-semibold text-sm transition-colors py-1.5 px-2 rounded-lg hover:bg-ios-gray6 dark:hover:bg-ios-darkBg"
+            className="flex items-center gap-1 text-ios-yellow hover:text-ios-yellowHover font-semibold text-sm transition-colors py-1.5 px-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/5"
           >
             <ChevronLeft size={20} />
             <span className="hidden sm:inline">Notas</span>
           </button>
 
-          <div className="h-5 w-[1px] bg-ios-border dark:bg-ios-darkBorder" />
+          <div className="h-5 w-[1px] bg-ios-border dark:bg-white/10" />
 
           {/* Título de la nota integrado */}
           <input
@@ -180,15 +180,15 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="Título de la nota..."
-            className="text-base font-bold bg-transparent outline-none border-none focus:ring-0 text-ios-text dark:text-ios-darkText placeholder-ios-textTertiary/50 truncate max-w-sm sm:max-w-md"
+            className="text-base font-bold bg-transparent outline-none border-none focus:ring-0 text-ios-text dark:text-white placeholder-ios-textTertiary/50 dark:placeholder-[#6E6E73] truncate max-w-sm sm:max-w-md"
           />
 
           {/* Estado de guardado */}
-          <div className="hidden md:flex items-center gap-1 text-xs text-ios-textTertiary dark:text-ios-darkTextTertiary">
+          <div className="hidden md:flex items-center gap-1 text-xs text-ios-textTertiary dark:text-[#8E8E93]">
             {saveStatus === 'saving' ? (
               <span className="animate-pulse">Guardando...</span>
             ) : (
-              <span className="flex items-center gap-0.5 text-ios-green">
+              <span className="flex items-center gap-0.5 text-ios-green font-medium">
                 <Check size={12} /> Guardado
               </span>
             )}
@@ -201,7 +201,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
           <select
             value={folderId}
             onChange={(e) => setFolderId(e.target.value)}
-            className="bg-ios-gray6 dark:bg-ios-darkBg text-xs font-semibold text-ios-textSecondary dark:text-ios-darkTextSecondary border border-ios-borderSubtle dark:border-ios-darkBorderSubtle rounded-xl px-2.5 py-1.5 outline-none cursor-pointer"
+            className="bg-ios-gray6 dark:bg-[#2C2C2E] text-xs font-semibold text-ios-textSecondary dark:text-[#A1A1A6] border border-ios-borderSubtle dark:border-white/10 rounded-xl px-2.5 py-1.5 outline-none cursor-pointer"
           >
             <option value="all">📁 Sin clasificar</option>
             {folders.map((f) => (
@@ -212,11 +212,11 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
           </select>
 
           {/* Botones de Exportar */}
-          <div className="flex items-center bg-ios-gray6 dark:bg-ios-darkBg rounded-xl p-0.5 border border-ios-borderSubtle dark:border-ios-darkBorderSubtle">
+          <div className="flex items-center bg-ios-gray6 dark:bg-[#2C2C2E] rounded-xl p-0.5 border border-ios-borderSubtle dark:border-white/10">
             <button
               type="button"
               onClick={() => handleExport('png')}
-              className="px-2.5 py-1 rounded-lg text-xs font-semibold text-ios-textSecondary dark:text-ios-darkTextSecondary hover:text-ios-text dark:hover:text-ios-darkText hover:bg-ios-card dark:hover:bg-ios-darkCard transition-all"
+              className="px-2.5 py-1 rounded-lg text-xs font-semibold text-ios-textSecondary dark:text-[#A1A1A6] hover:text-ios-text dark:hover:text-white hover:bg-ios-card dark:hover:bg-[#3A3A3C] transition-all"
               title="Exportar imagen PNG"
             >
               PNG
@@ -224,7 +224,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
             <button
               type="button"
               onClick={() => handleExport('pdf')}
-              className="px-2.5 py-1 rounded-lg text-xs font-semibold text-ios-textSecondary dark:text-ios-darkTextSecondary hover:text-ios-text dark:hover:text-ios-darkText hover:bg-ios-card dark:hover:bg-ios-darkCard transition-all"
+              className="px-2.5 py-1 rounded-lg text-xs font-semibold text-ios-textSecondary dark:text-[#A1A1A6] hover:text-ios-text dark:hover:text-white hover:bg-ios-card dark:hover:bg-[#3A3A3C] transition-all"
               title="Exportar documento PDF"
             >
               PDF
@@ -235,7 +235,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
             <button
               type="button"
               onClick={() => onDelete(note.id)}
-              className="p-1.5 text-ios-textTertiary hover:text-ios-red rounded-xl hover:bg-ios-gray6 dark:hover:bg-ios-darkBg transition-colors"
+              className="p-1.5 text-ios-textTertiary dark:text-[#8E8E93] hover:text-ios-red dark:hover:text-ios-red rounded-xl hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
               title="Eliminar nota"
             >
               <Trash2 size={16} />

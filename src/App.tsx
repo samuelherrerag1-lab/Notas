@@ -88,7 +88,7 @@ export const AppContent: React.FC = () => {
   const activeNote = notes.find((n: Note) => n.id === currentNoteId);
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-ios-bg dark:bg-ios-darkBg text-ios-text dark:text-ios-darkText font-sans select-none">
+    <div className="flex h-screen w-screen overflow-hidden bg-ios-bg dark:bg-[#121214] text-ios-text dark:text-white font-sans select-none">
       {activeNote ? (
         <NoteEditor
           note={activeNote}
@@ -118,8 +118,8 @@ export const AppContent: React.FC = () => {
         </>
       )}
 
-      {/* Banner de instalación nativa PWA */}
-      <InstallPromptBanner />
+      {/* Banner flotante de instalación nativa PWA (no afecta la estructura de pantalla) */}
+      <InstallPromptBanner variant="floating" />
     </div>
   );
 };

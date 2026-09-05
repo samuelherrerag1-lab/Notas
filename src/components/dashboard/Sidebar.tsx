@@ -55,21 +55,23 @@ export const Sidebar: React.FC<SidebarProps> = ({
   };
 
   return (
-    <aside className="w-64 shrink-0 h-screen flex flex-col bg-ios-sidebar dark:bg-ios-darkSidebar border-r border-ios-border/80 dark:border-ios-darkBorder/80 text-ios-text dark:text-ios-darkText font-sans select-none transition-colors">
+    <aside className="w-64 shrink-0 h-screen flex flex-col bg-ios-sidebar dark:bg-[#18181B] border-r border-ios-border/80 dark:border-white/[0.08] text-ios-text dark:text-white font-sans select-none transition-colors">
       {/* Cabecera Sidebar */}
-      <div className="p-4 flex items-center justify-between border-b border-ios-border/50 dark:border-ios-darkBorder/50">
-        <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-lg bg-ios-yellow flex items-center justify-center text-white font-bold text-sm shadow-ios">
+      <div className="p-4 flex items-center justify-between border-b border-ios-border/50 dark:border-white/[0.06]">
+        <div className="flex items-center gap-2.5">
+          <div className="w-7 h-7 rounded-lg bg-ios-yellow flex items-center justify-center text-white font-bold text-sm shadow-sm">
             
           </div>
-          <span className="font-extrabold text-sm tracking-tight">Notas Escolares</span>
+          <span className="font-bold text-sm tracking-tight text-ios-text dark:text-white">
+            Notas Escolares
+          </span>
         </div>
       </div>
 
       {/* Lista de Carpetas / Materias */}
       <div className="flex-1 overflow-y-auto px-3 py-3 space-y-1">
-        <div className="text-[11px] font-bold text-ios-textTertiary dark:text-ios-darkTextTertiary uppercase tracking-wider px-2.5 py-1">
-          Secciones
+        <div className="text-[10px] font-bold text-ios-textTertiary dark:text-[#6E6E73] uppercase tracking-wider px-2.5 py-1">
+          Vistas
         </div>
 
         {/* Todas las Notas */}
@@ -78,8 +80,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
           onClick={() => onSelectFolder('all')}
           className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all ${
             activeFolderId === 'all'
-              ? 'bg-ios-yellow text-white shadow-ios'
-              : 'text-ios-textSecondary dark:text-ios-darkTextSecondary hover:bg-ios-gray6 dark:hover:bg-ios-darkBg'
+              ? 'bg-ios-yellow text-white shadow-sm'
+              : 'text-ios-textSecondary dark:text-[#A1A1A6] hover:bg-black/5 dark:hover:bg-white/[0.06] hover:text-ios-text dark:hover:text-white'
           }`}
         >
           <BookOpen size={16} />
@@ -92,8 +94,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
           onClick={() => onSelectFolder('pinned')}
           className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all ${
             activeFolderId === 'pinned'
-              ? 'bg-ios-yellow text-white shadow-ios'
-              : 'text-ios-textSecondary dark:text-ios-darkTextSecondary hover:bg-ios-gray6 dark:hover:bg-ios-darkBg'
+              ? 'bg-ios-yellow text-white shadow-sm'
+              : 'text-ios-textSecondary dark:text-[#A1A1A6] hover:bg-black/5 dark:hover:bg-white/[0.06] hover:text-ios-text dark:hover:text-white'
           }`}
         >
           <Pin size={16} />
@@ -101,7 +103,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </button>
 
         <div className="pt-3 pb-1 flex items-center justify-between px-2.5">
-          <span className="text-[11px] font-bold text-ios-textTertiary dark:text-ios-darkTextTertiary uppercase tracking-wider">
+          <span className="text-[10px] font-bold text-ios-textTertiary dark:text-[#6E6E73] uppercase tracking-wider">
             Materias
           </span>
           <button
@@ -123,7 +125,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               value={newFolderName}
               onChange={(e) => setNewFolderName(e.target.value)}
               placeholder="Nombre de materia..."
-              className="w-full text-xs px-2.5 py-1.5 bg-ios-card dark:bg-ios-darkCard rounded-xl border border-ios-yellow outline-none text-ios-text dark:text-ios-darkText"
+              className="w-full text-xs px-2.5 py-1.5 bg-ios-card dark:bg-[#1C1C1E] rounded-xl border border-ios-yellow outline-none text-ios-text dark:text-white"
               onBlur={() => {
                 if (!newFolderName.trim()) setIsCreatingFolder(false);
               }}
@@ -139,8 +141,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
               key={f.id}
               className={`group flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold cursor-pointer transition-all ${
                 isSelected
-                  ? 'bg-ios-yellow text-white shadow-ios'
-                  : 'text-ios-textSecondary dark:text-ios-darkTextSecondary hover:bg-ios-gray6 dark:hover:bg-ios-darkBg'
+                  ? 'bg-ios-yellow text-white shadow-sm'
+                  : 'text-ios-textSecondary dark:text-[#A1A1A6] hover:bg-black/5 dark:hover:bg-white/[0.06] hover:text-ios-text dark:hover:text-white'
               }`}
               onClick={() => onSelectFolder(f.id)}
             >
@@ -157,7 +159,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     onDeleteFolder(f.id);
                   }}
                   className={`opacity-0 group-hover:opacity-100 p-0.5 rounded hover:text-ios-red transition-opacity ${
-                    isSelected ? 'text-white/80' : 'text-ios-textTertiary'
+                    isSelected ? 'text-white/80' : 'text-ios-textTertiary dark:text-[#6E6E73]'
                   }`}
                   title="Eliminar carpeta"
                 >
@@ -170,17 +172,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
       </div>
 
       {/* Pie con Copia de Seguridad & Tema */}
-      <div className="p-3 border-t border-ios-border/50 dark:border-ios-darkBorder/50 space-y-1.5">
+      <div className="p-3 border-t border-ios-border/50 dark:border-white/[0.06] space-y-1">
         <button
           type="button"
           onClick={exportBackupFile}
-          className="w-full flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-medium text-ios-textSecondary dark:text-ios-darkTextSecondary hover:bg-ios-gray6 dark:hover:bg-ios-darkBg transition-colors"
+          className="w-full flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-medium text-ios-textSecondary dark:text-[#A1A1A6] hover:bg-black/5 dark:hover:bg-white/[0.06] hover:text-ios-text dark:hover:text-white transition-colors"
         >
           <Download size={14} />
-          <span>Copia de seguridad (.notesbackup)</span>
+          <span>Copia de seguridad</span>
         </button>
 
-        <label className="w-full flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-medium text-ios-textSecondary dark:text-ios-darkTextSecondary hover:bg-ios-gray6 dark:hover:bg-ios-darkBg cursor-pointer transition-colors">
+        <label className="w-full flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-medium text-ios-textSecondary dark:text-[#A1A1A6] hover:bg-black/5 dark:hover:bg-white/[0.06] hover:text-ios-text dark:hover:text-white cursor-pointer transition-colors">
           <Upload size={14} />
           <span>Restaurar datos</span>
           <input
@@ -194,14 +196,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <button
           type="button"
           onClick={toggleTheme}
-          className="w-full flex items-center justify-between px-3 py-1.5 rounded-xl text-xs font-medium text-ios-textSecondary dark:text-ios-darkTextSecondary hover:bg-ios-gray6 dark:hover:bg-ios-darkBg transition-colors"
+          className="w-full flex items-center justify-between px-3 py-1.5 rounded-xl text-xs font-medium text-ios-textSecondary dark:text-[#A1A1A6] hover:bg-black/5 dark:hover:bg-white/[0.06] hover:text-ios-text dark:hover:text-white transition-colors"
         >
           <span className="flex items-center gap-2">
             {isDark ? <Sun size={14} className="text-ios-yellow" /> : <Moon size={14} />}
             <span>{isDark ? 'Modo Claro' : 'Modo Oscuro'}</span>
           </span>
-          <span className="text-[10px] uppercase font-bold text-ios-yellow">
-            {isDark ? 'DARK' : 'LIGHT'}
+          <span className="text-[9px] uppercase font-bold text-ios-yellow">
+            {isDark ? 'OSCURO' : 'CLARO'}
           </span>
         </button>
       </div>
