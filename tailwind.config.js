@@ -1,5 +1,6 @@
 /** @type {import('tailwindcss').Config} */
 export default {
+  darkMode: 'class',
   content: [
     "./index.html",
     "./src/**/*.{js,ts,jsx,tsx}",
@@ -20,6 +21,18 @@ export default {
           textSecondary: '#8E8E93',
           textTertiary: '#AEAEB2',
           activeBg: '#E9E9EB',
+          // Dark palette tokens
+          darkCanvas: '#121214',
+          darkBg: '#1C1C1E',
+          darkSidebar: '#1C1C1E',
+          darkCard: '#2C2C2E',
+          darkBorder: '#38383A',
+          darkBorderSubtle: '#2C2C2E',
+          darkText: '#F2F2F7',
+          darkTextSecondary: '#98989D',
+          darkTextTertiary: '#636366',
+          darkActiveBg: '#3A3A3C',
+          darkYellowLight: 'rgba(228, 161, 27, 0.15)',
           gray1: '#8E8E93',
           gray2: '#AEAEB2',
           gray3: '#C7C7CC',

@@ -68,9 +68,21 @@ export function getStrokeOptionsForTool(tool: ToolType, size: number): StrokeOpt
  */
 export function renderStrokeToContext(
   ctx: CanvasRenderingContext2D,
-  stroke: Stroke
+  stroke: Stroke,
+  isDark = false
 ): void {
-  const { points, tool, color, size } = stroke;
+  const { points, tool, size } = stroke;
+  let color = stroke.color;
+
+  // Inversión cromática inteligente en Modo Oscuro:
+  // Tinta negra/oscura original -> Blanco perla legible en fondo oscuro
+  if (isDark) {
+    const lowerColor = (color || '').toLowerCase();
+    if (lowerColor === '#1c1c1e' || lowerColor === '#000000' || lowerColor === 'black' || lowerColor === '#000') {
+      color = '#F2F2F7';
+    }
+  }
+
   if (!points || points.length === 0) return;
 
   // Formatear puntos para perfect-freehand: [x, y, pressure]
@@ -81,14 +93,14 @@ export function renderStrokeToContext(
     ctx.save();
     ctx.fillStyle = color;
     if (tool === 'highlighter') {
-      ctx.globalCompositeOperation = 'multiply';
-      ctx.globalAlpha = 0.4;
+      ctx.globalCompositeOperation = isDark ? 'source-over' : 'multiply';
+      ctx.globalAlpha = isDark ? 0.35 : 0.4;
       ctx.beginPath();
       ctx.arc(points[0].x, points[0].y, (size * 3.2) / 2, 0, Math.PI * 2);
       ctx.fill();
     } else if (tool === 'pencil') {
       ctx.globalCompositeOperation = 'source-over';
-      ctx.globalAlpha = 0.75;
+      ctx.globalAlpha = isDark ? 0.85 : 0.75;
       ctx.beginPath();
       ctx.arc(points[0].x, points[0].y, (size * 0.85) / 2, 0, Math.PI * 2);
       ctx.fill();
@@ -115,14 +127,14 @@ export function renderStrokeToContext(
 
   ctx.save();
 
-  // Configurar modos de composición y opacidad según la herramienta
+  // Configurar modos de composición y opacidad según la herramienta y tema
   if (tool === 'highlighter') {
-    ctx.globalCompositeOperation = 'multiply';
-    ctx.globalAlpha = 0.4;
+    ctx.globalCompositeOperation = isDark ? 'source-over' : 'multiply';
+    ctx.globalAlpha = isDark ? 0.35 : 0.4;
     ctx.fillStyle = color;
   } else if (tool === 'pencil') {
     ctx.globalCompositeOperation = 'source-over';
-    ctx.globalAlpha = 0.78;
+    ctx.globalAlpha = isDark ? 0.85 : 0.78;
     ctx.fillStyle = color;
   } else if (tool === 'eraser') {
     ctx.globalCompositeOperation = 'destination-out';

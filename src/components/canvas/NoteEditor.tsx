@@ -1,400 +1,291 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Note, ToolType, EraserMode, BackgroundTemplate, Stroke, NoteImage, DocumentData, NoteTextBlock } from '../../types';
+import React, { useState, useEffect, useCallback } from 'react';
+import {
+  ChevronLeft,
+  Trash2,
+  Check,
+} from 'lucide-react';
+import {
+  CanvasState,
+  DocumentData,
+  Folder,
+  Note,
+  NoteImage,
+  NoteTextBlock,
+  Stroke,
+  ViewportTransform,
+} from '../../types';
+import { CanvasEngine } from './CanvasEngine';
 import { Toolbar } from './Toolbar';
-import { CanvasEngine, CanvasEngineHandle } from './CanvasEngine';
-import { saveNote } from '../../db/db';
-import { processDocumentFile } from './DocumentViewer';
-import { processImageFile } from './ImageLayer';
+import { createTextBlock, createChecklistBlock } from './TextLayer';
 import { exportNoteAsImage, exportNoteAsPdf } from '../../utils/exportEngine';
+import { useTheme } from '../../context/ThemeContext';
 
 interface NoteEditorProps {
-  initialNote: Note;
+  note: Note;
+  folders: Folder[];
+  onSave: (updatedNote: Note) => void;
   onBack: () => void;
-  onNoteUpdated?: (updatedNote: Note) => void;
+  onDelete?: (id: string) => void;
 }
 
 export const NoteEditor: React.FC<NoteEditorProps> = ({
-  initialNote,
+  note,
+  folders,
+  onSave,
   onBack,
-  onNoteUpdated,
+  onDelete,
 }) => {
-  const [note, setNote] = useState<Note>(initialNote);
-  const [currentTool, setCurrentTool] = useState<ToolType>('pen');
-  const [currentColor, setCurrentColor] = useState<string>('#1C1C1E');
-  const [currentSize, setCurrentSize] = useState<number>(4);
-  const [eraserMode, setEraserMode] = useState<EraserMode>('stroke');
-  const [isSaving, setIsSaving] = useState(false);
+  const { isDark } = useTheme();
 
-  // Historial de Undo / Redo
+  const [title, setTitle] = useState(note.title || 'Nota sin título');
+  const [folderId, setFolderId] = useState(note.folderId || 'all');
+  const [strokes, setStrokes] = useState<Stroke[]>(note.strokes || []);
+  const [images, setImages] = useState<NoteImage[]>(note.images || []);
+  const [textBlocks, setTextBlocks] = useState<NoteTextBlock[]>(note.textBlocks || []);
+  const [document, setDocument] = useState<DocumentData | undefined>(note.document);
+  const [backgroundTemplate, setBackgroundTemplate] = useState(note.backgroundTemplate || 'RULED');
+
   const [undoStack, setUndoStack] = useState<Stroke[][]>([]);
   const [redoStack, setRedoStack] = useState<Stroke[][]>([]);
 
-  const canvasRef = useRef<CanvasEngineHandle>(null);
-  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const noteRef = useRef<Note>(note);
+  const [canvasState, setCanvasState] = useState<CanvasState>({
+    currentTool: 'pen',
+    currentColor: '#1C1C1E',
+    currentSize: 3,
+    eraserMode: 'pixel',
+    backgroundTemplate: note.backgroundTemplate || 'RULED',
+    canUndo: false,
+    canRedo: false,
+  });
 
+  const [viewportTransform, setViewportTransform] = useState<ViewportTransform>({
+    scale: 1,
+    x: 0,
+    y: 0,
+  });
+
+  const [saveStatus, setSaveStatus] = useState<'saved' | 'saving'>('saved');
+
+  // Guardado reactivo automático hacia IndexedDB
   useEffect(() => {
-    noteRef.current = note;
-  }, [note]);
+    setSaveStatus('saving');
+    const timer = setTimeout(() => {
+      onSave({
+        ...note,
+        title,
+        folderId,
+        strokes,
+        images,
+        textBlocks,
+        document,
+        backgroundTemplate,
+        updatedAt: Date.now(),
+      });
+      setSaveStatus('saved');
+    }, 600);
 
-  /**
-   * Auto-guardado con debounce y generación de miniatura para el Dashboard
-   */
-  const triggerAutoSave = useCallback(
-    (updatedNote: Note) => {
-      setIsSaving(true);
-      if (saveTimeoutRef.current) {
-        clearTimeout(saveTimeoutRef.current);
-      }
+    return () => clearTimeout(timer);
+  }, [title, folderId, strokes, images, textBlocks, document, backgroundTemplate]);
 
-      saveTimeoutRef.current = setTimeout(async () => {
-        try {
-          const thumbnail = canvasRef.current?.generateThumbnail(320, 220);
-          const noteToSave: Note = {
-            ...updatedNote,
-            thumbnail: thumbnail || updatedNote.thumbnail,
-            updatedAt: Date.now(),
-          };
-
-          await saveNote(noteToSave);
-          onNoteUpdated?.(noteToSave);
-        } catch (err) {
-          console.error('Error al autoguardar nota:', err);
-        } finally {
-          setIsSaving(false);
-        }
-      }, 400);
-    },
-    [onNoteUpdated]
-  );
-
-  /**
-   * Manejo de cambio de trazos con historial
-   */
+  // Manejadores de Trazos y Deshacer / Rehacer
   const handleStrokesChange = (newStrokes: Stroke[]) => {
-    setUndoStack((prev) => [...prev, note.strokes]);
+    setUndoStack((prev) => [...prev, strokes]);
     setRedoStack([]);
-
-    const currentPage = note.document?.currentPage || 1;
-    const pageStrokes = {
-      ...(note.pageStrokes || {}),
-      [currentPage]: newStrokes,
-    };
-
-    const updatedNote: Note = {
-      ...note,
-      strokes: newStrokes,
-      pageStrokes,
-    };
-    setNote(updatedNote);
-    triggerAutoSave(updatedNote);
-  };
-
-  /**
-   * Manejo de imágenes insertadas
-   */
-  const handleImagesChange = (newImages: NoteImage[]) => {
-    const updatedNote: Note = {
-      ...note,
-      images: newImages,
-    };
-    setNote(updatedNote);
-    triggerAutoSave(updatedNote);
-  };
-
-  /**
-   * Manejo de bloques de texto y checklists
-   */
-  const handleTextBlocksChange = (newBlocks: NoteTextBlock[]) => {
-    const updatedNote: Note = {
-      ...note,
-      textBlocks: newBlocks,
-    };
-    setNote(updatedNote);
-    triggerAutoSave(updatedNote);
-  };
-
-  /**
-   * Insertar bloque de texto desde la barra
-   */
-  const handleAddTextBlock = (type: 'text' | 'checklist') => {
-    canvasRef.current?.addTextBlock(type);
-  };
-
-  /**
-   * Insertar imagen desde archivo o portapapeles
-   */
-  const handleInsertImage = async (file: File) => {
-    try {
-      const newImg = await processImageFile(file, 120, 160);
-      const updatedImages = [...(note.images || []), newImg];
-      handleImagesChange(updatedImages);
-    } catch (err) {
-      console.error('Error al insertar imagen:', err);
-    }
-  };
-
-  /**
-   * Adjuntar documento PDF / DOCX / XLSX
-   */
-  const handleAttachDocument = async (file: File) => {
-    try {
-      const docData = await processDocumentFile(file);
-      const updatedNote: Note = {
-        ...note,
-        document: docData,
-        title: note.title === 'Nueva Nota' ? file.name.replace(/\.[^/.]+$/, '') : note.title,
-      };
-      setNote(updatedNote);
-      triggerAutoSave(updatedNote);
-    } catch (err: unknown) {
-      alert((err as Error).message || 'Error al cargar el documento.');
-    }
-  };
-
-  /**
-   * Navegación entre páginas del documento anotado
-   */
-  const handlePageChange = (newPage: number) => {
-    if (!note.document) return;
-
-    const oldPage = note.document.currentPage;
-    const updatedPageStrokes = {
-      ...(note.pageStrokes || {}),
-      [oldPage]: note.strokes,
-    };
-
-    const newPageStrokes = updatedPageStrokes[newPage] || [];
-
-    const updatedDoc: DocumentData = {
-      ...note.document,
-      currentPage: newPage,
-    };
-
-    const updatedNote: Note = {
-      ...note,
-      document: updatedDoc,
-      strokes: newPageStrokes,
-      pageStrokes: updatedPageStrokes,
-    };
-
-    setNote(updatedNote);
-    setUndoStack([]);
-    setRedoStack([]);
-    triggerAutoSave(updatedNote);
-  };
-
-  const handleNumPagesDiscovered = (numPages: number) => {
-    if (note.document && note.document.numPages !== numPages) {
-      const updatedDoc: DocumentData = {
-        ...note.document,
-        numPages,
-      };
-      const updatedNote = { ...note, document: updatedDoc };
-      setNote(updatedNote);
-      triggerAutoSave(updatedNote);
-    }
-  };
-
-  const handleRemoveDocument = () => {
-    if (window.confirm('¿Deseas desvincular el documento adjunto?')) {
-      const updatedNote: Note = {
-        ...note,
-        document: undefined,
-      };
-      setNote(updatedNote);
-      triggerAutoSave(updatedNote);
-    }
-  };
-
-  const handleTitleChange = (newTitle: string) => {
-    const updatedNote = { ...note, title: newTitle };
-    setNote(updatedNote);
-    triggerAutoSave(updatedNote);
-  };
-
-  const handleBackgroundChange = (template: BackgroundTemplate) => {
-    const updatedNote = { ...note, backgroundTemplate: template };
-    setNote(updatedNote);
-    triggerAutoSave(updatedNote);
+    setStrokes(newStrokes);
   };
 
   const handleUndo = useCallback(() => {
     if (undoStack.length === 0) return;
-    const previousStrokes = undoStack[undoStack.length - 1];
-    setUndoStack((prev) => prev.slice(0, -1));
-    setRedoStack((prev) => [...prev, note.strokes]);
-
-    const currentPage = note.document?.currentPage || 1;
-    const pageStrokes = {
-      ...(note.pageStrokes || {}),
-      [currentPage]: previousStrokes,
-    };
-
-    const updatedNote = {
-      ...note,
-      strokes: previousStrokes,
-      pageStrokes,
-    };
-    setNote(updatedNote);
-    triggerAutoSave(updatedNote);
-  }, [undoStack, note, triggerAutoSave]);
+    const previous = undoStack[undoStack.length - 1];
+    setRedoStack((prev) => [...prev, strokes]);
+    setUndoStack((prev) => prev.slice(0, prev.length - 1));
+    setStrokes(previous);
+  }, [undoStack, strokes]);
 
   const handleRedo = useCallback(() => {
     if (redoStack.length === 0) return;
-    const nextStrokes = redoStack[redoStack.length - 1];
-    setRedoStack((prev) => prev.slice(0, -1));
-    setUndoStack((prev) => [...prev, note.strokes]);
+    const next = redoStack[redoStack.length - 1];
+    setUndoStack((prev) => [...prev, strokes]);
+    setRedoStack((prev) => prev.slice(0, prev.length - 1));
+    setStrokes(next);
+  }, [redoStack, strokes]);
 
-    const currentPage = note.document?.currentPage || 1;
-    const pageStrokes = {
-      ...(note.pageStrokes || {}),
-      [currentPage]: nextStrokes,
+  const handleInsertImage = (dataUrl: string) => {
+    const newImage: NoteImage = {
+      id: `img-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+      dataUrl,
+      x: Math.round(-viewportTransform.x + 120),
+      y: Math.round(-viewportTransform.y + 120),
+      width: 320,
+      height: 240,
+      rotation: 0,
+      aspectRatio: 320 / 240,
     };
+    setImages((prev) => [...prev, newImage]);
+  };
 
-    const updatedNote = {
+  const handleAddTextBlock = () => {
+    const newBlock = createTextBlock(
+      Math.round(-viewportTransform.x + 120),
+      Math.round(-viewportTransform.y + 120)
+    );
+    setTextBlocks((prev) => [...prev, newBlock]);
+  };
+
+  const handleAddChecklist = () => {
+    const newBlock = createChecklistBlock(
+      Math.round(-viewportTransform.x + 120),
+      Math.round(-viewportTransform.y + 120)
+    );
+    setTextBlocks((prev) => [...prev, newBlock]);
+  };
+
+  const handleExport = async (format: 'png' | 'pdf') => {
+    const exportData = {
       ...note,
-      strokes: nextStrokes,
-      pageStrokes,
+      title,
+      strokes,
+      images,
+      textBlocks,
+      document,
+      backgroundTemplate,
     };
-    setNote(updatedNote);
-    triggerAutoSave(updatedNote);
-  }, [redoStack, note, triggerAutoSave]);
 
-  const handleClear = () => {
-    if (note.strokes.length === 0) return;
-    if (window.confirm('¿Deseas borrar todos los trazos de esta página?')) {
-      handleStrokesChange([]);
+    if (format === 'png') {
+      await exportNoteAsImage(exportData, isDark);
+    } else {
+      await exportNoteAsPdf(exportData, isDark);
     }
   };
-
-  const handleExportPng = async () => {
-    const dims = canvasRef.current?.getDimensions() || { width: 900, height: 1200 };
-    await exportNoteAsImage(note, dims.width, dims.height);
-  };
-
-  const handleExportPdf = async () => {
-    const dims = canvasRef.current?.getDimensions() || { width: 900, height: 1200 };
-    await exportNoteAsPdf(note, dims.width, dims.height);
-  };
-
-  const handleBack = async () => {
-    if (saveTimeoutRef.current) {
-      clearTimeout(saveTimeoutRef.current);
-    }
-    const thumbnail = canvasRef.current?.generateThumbnail(320, 220);
-    const finalNote: Note = {
-      ...noteRef.current,
-      thumbnail: thumbnail || noteRef.current.thumbnail,
-      updatedAt: Date.now(),
-    };
-    await saveNote(finalNote);
-    onNoteUpdated?.(finalNote);
-    onBack();
-  };
-
-  /**
-   * Atajos de teclado y pegado
-   */
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Ignorar si el usuario está escribiendo en un input o textarea
-      if (
-        document.activeElement?.tagName === 'INPUT' ||
-        document.activeElement?.tagName === 'TEXTAREA'
-      ) {
-        return;
-      }
-
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z') {
-        if (e.shiftKey) {
-          handleRedo();
-        } else {
-          handleUndo();
-        }
-        e.preventDefault();
-      } else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'y') {
-        handleRedo();
-        e.preventDefault();
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleUndo, handleRedo]);
-
-  useEffect(() => {
-    const handlePaste = async (e: ClipboardEvent) => {
-      const items = e.clipboardData?.items;
-      if (!items) return;
-
-      for (let i = 0; i < items.length; i++) {
-        if (items[i].type.indexOf('image') !== -1) {
-          const file = items[i].getAsFile();
-          if (file) {
-            await handleInsertImage(file);
-          }
-        }
-      }
-    };
-
-    window.addEventListener('paste', handlePaste);
-    return () => window.removeEventListener('paste', handlePaste);
-  }, [note]);
 
   return (
-    <div className="flex flex-col h-full w-full bg-ios-bg select-none overflow-hidden">
+    <div className="relative w-screen h-screen flex flex-col bg-ios-paper dark:bg-ios-darkBg text-ios-text dark:text-ios-darkText overflow-hidden select-none font-sans">
+      {/* 1. Barra Superior Minimalista Estilo Apple Notes */}
+      <header className="h-14 shrink-0 px-4 flex items-center justify-between bg-ios-card/80 dark:bg-ios-darkCard/80 backdrop-blur-md border-b border-ios-border/80 dark:border-ios-darkBorder/80 z-40 transition-colors">
+        <div className="flex items-center gap-3 flex-1 min-w-0">
+          <button
+            type="button"
+            onClick={onBack}
+            className="flex items-center gap-1 text-ios-yellow hover:text-ios-yellowHover font-semibold text-sm transition-colors py-1.5 px-2 rounded-lg hover:bg-ios-gray6 dark:hover:bg-ios-darkBg"
+          >
+            <ChevronLeft size={20} />
+            <span className="hidden sm:inline">Notas</span>
+          </button>
+
+          <div className="h-5 w-[1px] bg-ios-border dark:bg-ios-darkBorder" />
+
+          {/* Título de la nota integrado */}
+          <input
+            type="text"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="Título de la nota..."
+            className="text-base font-bold bg-transparent outline-none border-none focus:ring-0 text-ios-text dark:text-ios-darkText placeholder-ios-textTertiary/50 truncate max-w-sm sm:max-w-md"
+          />
+
+          {/* Estado de guardado */}
+          <div className="hidden md:flex items-center gap-1 text-xs text-ios-textTertiary dark:text-ios-darkTextTertiary">
+            {saveStatus === 'saving' ? (
+              <span className="animate-pulse">Guardando...</span>
+            ) : (
+              <span className="flex items-center gap-0.5 text-ios-green">
+                <Check size={12} /> Guardado
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Acciones de Carpeta y Exportación */}
+        <div className="flex items-center gap-2">
+          {/* Selector de Materia / Carpeta */}
+          <select
+            value={folderId}
+            onChange={(e) => setFolderId(e.target.value)}
+            className="bg-ios-gray6 dark:bg-ios-darkBg text-xs font-semibold text-ios-textSecondary dark:text-ios-darkTextSecondary border border-ios-borderSubtle dark:border-ios-darkBorderSubtle rounded-xl px-2.5 py-1.5 outline-none cursor-pointer"
+          >
+            <option value="all">📁 Sin clasificar</option>
+            {folders.map((f) => (
+              <option key={f.id} value={f.id}>
+                {f.icon || '📁'} {f.name}
+              </option>
+            ))}
+          </select>
+
+          {/* Botones de Exportar */}
+          <div className="flex items-center bg-ios-gray6 dark:bg-ios-darkBg rounded-xl p-0.5 border border-ios-borderSubtle dark:border-ios-darkBorderSubtle">
+            <button
+              type="button"
+              onClick={() => handleExport('png')}
+              className="px-2.5 py-1 rounded-lg text-xs font-semibold text-ios-textSecondary dark:text-ios-darkTextSecondary hover:text-ios-text dark:hover:text-ios-darkText hover:bg-ios-card dark:hover:bg-ios-darkCard transition-all"
+              title="Exportar imagen PNG"
+            >
+              PNG
+            </button>
+            <button
+              type="button"
+              onClick={() => handleExport('pdf')}
+              className="px-2.5 py-1 rounded-lg text-xs font-semibold text-ios-textSecondary dark:text-ios-darkTextSecondary hover:text-ios-text dark:hover:text-ios-darkText hover:bg-ios-card dark:hover:bg-ios-darkCard transition-all"
+              title="Exportar documento PDF"
+            >
+              PDF
+            </button>
+          </div>
+
+          {onDelete && (
+            <button
+              type="button"
+              onClick={() => onDelete(note.id)}
+              className="p-1.5 text-ios-textTertiary hover:text-ios-red rounded-xl hover:bg-ios-gray6 dark:hover:bg-ios-darkBg transition-colors"
+              title="Eliminar nota"
+            >
+              <Trash2 size={16} />
+            </button>
+          )}
+        </div>
+      </header>
+
+      {/* 2. Motor de Lienzo Infinito */}
+      <main className="flex-1 relative w-full h-full overflow-hidden">
+        <CanvasEngine
+          currentTool={canvasState.currentTool}
+          currentColor={canvasState.currentColor}
+          currentSize={canvasState.currentSize}
+          backgroundTemplate={backgroundTemplate}
+          strokes={strokes}
+          onStrokesChange={handleStrokesChange}
+          images={images}
+          onImagesChange={setImages}
+          textBlocks={textBlocks}
+          onTextBlocksChange={setTextBlocks}
+          document={document}
+          onDocumentChange={setDocument}
+          onUndo={handleUndo}
+          onRedo={handleRedo}
+          viewportTransform={viewportTransform}
+          onViewportTransformChange={setViewportTransform}
+        />
+      </main>
+
+      {/* 3. Barra Flotante de Herramientas Estilo iPadOS */}
       <Toolbar
-        noteTitle={note.title}
-        onTitleChange={handleTitleChange}
-        onBack={handleBack}
-        currentTool={currentTool}
-        onToolChange={setCurrentTool}
-        currentColor={currentColor}
-        onColorChange={setCurrentColor}
-        currentSize={currentSize}
-        onSizeChange={setCurrentSize}
-        eraserMode={eraserMode}
-        onEraserModeChange={setEraserMode}
-        backgroundTemplate={note.backgroundTemplate}
-        onBackgroundChange={handleBackgroundChange}
+        currentTool={canvasState.currentTool}
+        onToolChange={(tool) => setCanvasState((prev) => ({ ...prev, currentTool: tool }))}
+        currentColor={canvasState.currentColor}
+        onColorChange={(color) => setCanvasState((prev) => ({ ...prev, currentColor: color }))}
+        currentSize={canvasState.currentSize}
+        onSizeChange={(size) => setCanvasState((prev) => ({ ...prev, currentSize: size }))}
+        backgroundTemplate={backgroundTemplate}
+        onBackgroundChange={setBackgroundTemplate}
         canUndo={undoStack.length > 0}
         canRedo={redoStack.length > 0}
         onUndo={handleUndo}
         onRedo={handleRedo}
-        onClear={handleClear}
-        onExportPng={handleExportPng}
-        onExportPdf={handleExportPdf}
         onInsertImage={handleInsertImage}
-        onAttachDocument={handleAttachDocument}
         onAddTextBlock={handleAddTextBlock}
-        documentData={note.document}
-        onPageChange={handlePageChange}
-        onRemoveDocument={handleRemoveDocument}
-        isSaving={isSaving}
+        onAddChecklist={handleAddChecklist}
+        viewportTransform={viewportTransform}
+        onResetZoom={() => setViewportTransform({ scale: 1, x: 0, y: 0 })}
       />
-
-      <main className="flex-1 relative w-full h-full overflow-hidden">
-        <CanvasEngine
-          ref={canvasRef}
-          strokes={note.strokes}
-          onStrokesChange={handleStrokesChange}
-          currentTool={currentTool}
-          currentColor={currentColor}
-          currentSize={currentSize}
-          eraserMode={eraserMode}
-          backgroundTemplate={note.backgroundTemplate}
-          documentData={note.document}
-          onPageChange={handlePageChange}
-          onNumPagesDiscovered={handleNumPagesDiscovered}
-          images={note.images || []}
-          onImagesChange={handleImagesChange}
-          textBlocks={note.textBlocks || []}
-          onTextBlocksChange={handleTextBlocksChange}
-          onUndo={handleUndo}
-          onRedo={handleRedo}
-        />
-      </main>
     </div>
   );
 };

@@ -1,74 +1,135 @@
 import React, { useState, useEffect } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { db, initializeDatabase, createNewNote } from './db/db';
+import { db } from './db/db';
+import { Folder, Note } from './types';
+import { Sidebar } from './components/dashboard/Sidebar';
 import { NotesDashboard } from './components/dashboard/NotesDashboard';
 import { NoteEditor } from './components/canvas/NoteEditor';
+import { InstallPromptBanner } from './components/common/InstallPromptBanner';
+import { ThemeProvider } from './context/ThemeContext';
 
-export const App: React.FC = () => {
-  const [activeNoteId, setActiveNoteId] = useState<string | null>(null);
-  const [isDbReady, setIsDbReady] = useState(false);
+export const AppContent: React.FC = () => {
+  const notes = (useLiveQuery(() => db.notes.toArray(), []) as Note[] | undefined) || [];
+  const folders = (useLiveQuery(() => db.folders.toArray(), []) as Folder[] | undefined) || [];
 
-  // Inicialización de la base de datos Dexie en el primer render
+  const [activeFolderId, setActiveFolderId] = useState<string>('all');
+  const [currentNoteId, setCurrentNoteId] = useState<string | null>(null);
+
+  // Inicializar materias escolares predeterminadas si la base de datos está vacía
   useEffect(() => {
-    initializeDatabase()
-      .then(() => setIsDbReady(true))
-      .catch((err) => {
-        console.error('Error inicializando Dexie IndexedDB:', err);
-        setIsDbReady(true);
-      });
+    const initDefaults = async () => {
+      const folderCount = await db.folders.count();
+      if (folderCount === 0) {
+        await db.folders.bulkAdd([
+          { id: 'matematicas', name: 'Matemáticas', icon: '📐', createdAt: Date.now() },
+          { id: 'ciencias', name: 'Ciencias', icon: '🔬', createdAt: Date.now() },
+          { id: 'historia', name: 'Historia', icon: '🏛️', createdAt: Date.now() },
+          { id: 'idiomas', name: 'Idiomas', icon: '📖', createdAt: Date.now() },
+        ]);
+      }
+    };
+    initDefaults();
   }, []);
 
-  // Obtener la nota activa reactivamente con unwrap tipado de Dexie
-  const activeNote = useLiveQuery(
-    async () => {
-      if (!activeNoteId) return undefined;
-      return await db.notes.get(activeNoteId);
-    },
-    [activeNoteId]
-  );
+  const handleCreateNote = async () => {
+    const newNote: Note = {
+      id: `note-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+      title: 'Nota sin título',
+      folderId: activeFolderId === 'pinned' || activeFolderId === 'all' ? 'all' : activeFolderId,
+      backgroundTemplate: 'RULED',
+      strokes: [],
+      images: [],
+      textBlocks: [],
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      isPinned: activeFolderId === 'pinned',
+      isTrash: false,
+    };
 
-  const handleOpenNote = (noteId: string) => {
-    setActiveNoteId(noteId);
+    await db.notes.add(newNote);
+    setCurrentNoteId(newNote.id);
   };
 
-  const handleNewNote = async () => {
-    const newNote = await createNewNote('quick', 'RULED');
-    setActiveNoteId(newNote.id);
+  const handleSaveNote = async (updatedNote: Note) => {
+    await db.notes.put(updatedNote);
   };
 
-  const handleBackToDashboard = () => {
-    setActiveNoteId(null);
+  const handleDeleteNote = async (id: string) => {
+    await db.notes.delete(id);
+    if (currentNoteId === id) {
+      setCurrentNoteId(null);
+    }
   };
 
-  if (!isDbReady) {
-    return (
-      <div className="flex h-full w-full items-center justify-center bg-ios-bg">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-10 h-10 border-3 border-ios-yellow border-t-transparent rounded-full animate-spin" />
-          <span className="text-sm font-semibold text-ios-textSecondary">
-            Iniciando motor de notas...
-          </span>
-        </div>
-      </div>
-    );
-  }
+  const handleTogglePinNote = async (id: string) => {
+    const note = await db.notes.get(id);
+    if (note) {
+      await db.notes.update(id, { isPinned: !note.isPinned });
+    }
+  };
+
+  const handleCreateFolder = async (name: string, icon = '📁') => {
+    const newFolder: Folder = {
+      id: `f-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+      name,
+      icon,
+      createdAt: Date.now(),
+    };
+    await db.folders.add(newFolder);
+  };
+
+  const handleDeleteFolder = async (id: string) => {
+    await db.folders.delete(id);
+    if (activeFolderId === id) {
+      setActiveFolderId('all');
+    }
+  };
+
+  const activeNote = notes.find((n: Note) => n.id === currentNoteId);
 
   return (
-    <div className="h-full w-full bg-ios-bg text-ios-text overflow-hidden font-sans">
-      {activeNoteId && activeNote ? (
+    <div className="flex h-screen w-screen overflow-hidden bg-ios-bg dark:bg-ios-darkBg text-ios-text dark:text-ios-darkText font-sans select-none">
+      {activeNote ? (
         <NoteEditor
-          key={activeNote.id}
-          initialNote={activeNote}
-          onBack={handleBackToDashboard}
+          note={activeNote}
+          folders={folders}
+          onSave={handleSaveNote}
+          onBack={() => setCurrentNoteId(null)}
+          onDelete={handleDeleteNote}
         />
       ) : (
-        <NotesDashboard
-          onOpenNote={handleOpenNote}
-          onNewNote={handleNewNote}
-        />
+        <>
+          <Sidebar
+            folders={folders}
+            activeFolderId={activeFolderId}
+            onSelectFolder={setActiveFolderId}
+            onCreateFolder={handleCreateFolder}
+            onDeleteFolder={handleDeleteFolder}
+          />
+          <NotesDashboard
+            notes={notes}
+            folders={folders}
+            activeFolderId={activeFolderId}
+            onSelectNote={(note) => setCurrentNoteId(note.id)}
+            onCreateNote={handleCreateNote}
+            onDeleteNote={handleDeleteNote}
+            onTogglePinNote={handleTogglePinNote}
+          />
+        </>
       )}
+
+      {/* Banner de instalación nativa PWA */}
+      <InstallPromptBanner />
     </div>
   );
 };
+
+export function App() {
+  return (
+    <ThemeProvider>
+      <AppContent />
+    </ThemeProvider>
+  );
+}
 
 export default App;

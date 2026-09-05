@@ -31,6 +31,7 @@ export interface NoteImage {
   y: number;
   width: number;
   height: number;
+  rotation?: number; // ángulo de rotación en grados
   aspectRatio?: number;
 }
 

@@ -9,6 +9,12 @@
   --ios-card: #FFFFFF;
 }
 
+html.dark {
+  color-scheme: dark;
+  --ios-bg: #1C1C1E;
+  --ios-card: #2C2C2E;
+}
+
 /* Optimización para táctil en Chromebooks y pantallas táctiles */
 * {
   -webkit-tap-highlight-color: transparent;
@@ -34,8 +40,16 @@ input, textarea {
   border-radius: 9999px;
 }
 
+.dark ::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+}
+
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(0, 0, 0, 0.25);
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.35);
 }
 
 /* Desactivar gestos del navegador en áreas de dibujo */

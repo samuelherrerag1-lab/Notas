@@ -3,6 +3,17 @@ import { BackgroundTemplate, Note, Stroke } from '../types';
 import { BackgroundRenderer } from '../components/canvas/BackgroundRenderer';
 import { renderStrokeToContext } from './inkEngine';
 import * as pdfjsLib from 'pdfjs-dist';
+import { exportBackupFile, importBackupFile } from './backupManager';
+
+export const exportAllDataAsJson = exportBackupFile;
+export const importDataFromJson = async (file: File) => {
+  try {
+    await importBackupFile(file);
+    return true;
+  } catch {
+    return false;
+  }
+};
 
 /**
  * Renderiza una capa combinada de alta fidelidad (Fondo + Documento + Imágenes + Bloques de Texto + Trazos)
@@ -14,7 +25,8 @@ export async function renderCompositeCanvas(
   strokes: Stroke[],
   images: Note['images'] = [],
   textBlocks: Note['textBlocks'] = [],
-  pdfPageDoc?: pdfjsLib.PDFPageProxy
+  pdfPageDoc?: pdfjsLib.PDFPageProxy,
+  isDark = false
 ): Promise<HTMLCanvasElement> {
   const canvas = document.createElement('canvas');
   const dpr = 2;
@@ -27,7 +39,7 @@ export async function renderCompositeCanvas(
   ctx.scale(dpr, dpr);
 
   // 1. Renderizar Fondo
-  BackgroundRenderer.render(ctx, width, height, template);
+  BackgroundRenderer.render(ctx, width, height, template, { isDark });
 
   // 2. Renderizar Documento PDF si existe
   if (pdfPageDoc) {
@@ -50,14 +62,22 @@ export async function renderCompositeCanvas(
     }
   }
 
-  // 3. Renderizar Imágenes / Stickers
+  // 3. Renderizar Imágenes / Stickers con soporte de rotación angular
   if (images && images.length > 0) {
     for (const imgItem of images) {
       await new Promise<void>((resolve) => {
         const img = new Image();
         img.crossOrigin = 'anonymous';
         img.onload = () => {
-          ctx.drawImage(img, imgItem.x, imgItem.y, imgItem.width, imgItem.height);
+          ctx.save();
+          const cx = imgItem.x + imgItem.width / 2;
+          const cy = imgItem.y + imgItem.height / 2;
+          ctx.translate(cx, cy);
+          if (imgItem.rotation) {
+            ctx.rotate((imgItem.rotation * Math.PI) / 180);
+          }
+          ctx.drawImage(img, -imgItem.width / 2, -imgItem.height / 2, imgItem.width, imgItem.height);
+          ctx.restore();
           resolve();
         };
         img.onerror = () => resolve();
@@ -70,29 +90,19 @@ export async function renderCompositeCanvas(
   if (textBlocks && textBlocks.length > 0) {
     for (const block of textBlocks) {
       ctx.save();
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.92)';
-      ctx.strokeStyle = '#E5E5EA';
-      ctx.lineWidth = 1;
+      const defaultTextColor = isDark ? '#F2F2F7' : '#1C1C1E';
+      const rawColor = block.color;
+      const textColor = !rawColor || rawColor.toLowerCase() === '#1c1c1e' || rawColor.toLowerCase() === '#000000'
+        ? defaultTextColor
+        : rawColor;
 
       const pad = 12;
       const fontSize = block.fontSize || (block.hierarchy === 'title' ? 22 : block.hierarchy === 'subtitle' ? 18 : 15);
       const lines = block.type === 'text' ? (block.content || '').split('\n') : [];
       const lineHeight = Math.round(fontSize * 1.35);
-      const textBlockHeight = Math.max(54, lines.length * lineHeight + pad * 2 + 10);
-      const blockHeight = block.type === 'checklist' ? (block.items?.length || 1) * 28 + 36 : textBlockHeight;
-
-      ctx.beginPath();
-      if (typeof ctx.roundRect === 'function') {
-        ctx.roundRect(block.x, block.y, block.width, blockHeight, 10);
-      } else {
-        ctx.rect(block.x, block.y, block.width, blockHeight);
-      }
-      ctx.fill();
-      ctx.stroke();
 
       const fontStyle = block.isItalic ? 'italic ' : '';
       const fontWeight = block.isBold || block.hierarchy === 'title' || block.hierarchy === 'subtitle' ? 'bold ' : '';
-      const textColor = block.color || '#1C1C1E';
 
       if (block.type === 'text') {
         ctx.fillStyle = textColor;
@@ -101,23 +111,19 @@ export async function renderCompositeCanvas(
           ctx.fillText(line, block.x + pad, block.y + pad + fontSize + idx * lineHeight);
         });
       } else if (block.type === 'checklist' && block.items) {
-        ctx.font = 'bold 10px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-        ctx.fillStyle = '#8E8E93';
-        ctx.fillText('LISTA DE TAREAS', block.x + pad, block.y + pad + 6);
-
         ctx.font = `${fontStyle}${fontWeight}${fontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
         block.items.forEach((item, idx) => {
-          const itemY = block.y + pad + 26 + idx * 24;
+          const itemY = block.y + pad + 16 + idx * 24;
 
-          ctx.strokeStyle = item.completed ? '#E4A11B' : '#8E8E93';
-          ctx.fillStyle = item.completed ? '#E4A11B' : 'white';
+          ctx.strokeStyle = item.completed ? '#E4A11B' : (isDark ? '#636366' : '#8E8E93');
+          ctx.fillStyle = item.completed ? '#E4A11B' : 'transparent';
           ctx.lineWidth = 1.5;
           ctx.strokeRect(block.x + pad, itemY - 12, 14, 14);
           if (item.completed) {
             ctx.fillRect(block.x + pad + 2, itemY - 10, 10, 10);
           }
 
-          ctx.fillStyle = item.completed ? '#AEAEB2' : textColor;
+          ctx.fillStyle = item.completed ? (isDark ? '#636366' : '#AEAEB2') : textColor;
           ctx.fillText(item.text || '...', block.x + pad + 22, itemY);
 
           if (item.completed && item.text) {
@@ -125,7 +131,7 @@ export async function renderCompositeCanvas(
             ctx.beginPath();
             ctx.moveTo(block.x + pad + 22, itemY - 4);
             ctx.lineTo(block.x + pad + 22 + textWidth, itemY - 4);
-            ctx.strokeStyle = '#AEAEB2';
+            ctx.strokeStyle = isDark ? '#636366' : '#AEAEB2';
             ctx.lineWidth = 1;
             ctx.stroke();
           }
@@ -138,7 +144,7 @@ export async function renderCompositeCanvas(
 
   // 5. Renderizar Trazos vectoriales con perfect-freehand
   for (const stroke of strokes) {
-    renderStrokeToContext(ctx, stroke);
+    renderStrokeToContext(ctx, stroke, isDark);
   }
 
   return canvas;
@@ -149,8 +155,9 @@ export async function renderCompositeCanvas(
  */
 export async function exportNoteAsImage(
   note: Note,
-  width: number,
-  height: number
+  isDark = false,
+  width = 1920,
+  height = 1080
 ): Promise<void> {
   const currentStrokes = note.strokes || [];
   const canvas = await renderCompositeCanvas(
@@ -159,7 +166,9 @@ export async function exportNoteAsImage(
     note.backgroundTemplate,
     currentStrokes,
     note.images,
-    note.textBlocks
+    note.textBlocks,
+    undefined,
+    isDark
   );
 
   const dataUrl = canvas.toDataURL('image/png', 0.95);
@@ -175,8 +184,9 @@ export async function exportNoteAsImage(
  */
 export async function exportNoteAsPdf(
   note: Note,
-  width: number,
-  height: number
+  isDark = false,
+  width = 1920,
+  height = 1080
 ): Promise<void> {
   const orientation = width > height ? 'landscape' : 'portrait';
   const pdf = new jsPDF({
@@ -210,7 +220,8 @@ export async function exportNoteAsPdf(
           pageStrokes,
           note.images,
           note.textBlocks,
-          page
+          page,
+          isDark
         );
 
         const imgData = pageCanvas.toDataURL('image/jpeg', 0.9);
@@ -232,7 +243,9 @@ export async function exportNoteAsPdf(
       note.backgroundTemplate,
       currentStrokes,
       note.images,
-      note.textBlocks
+      note.textBlocks,
+      undefined,
+      isDark
     );
 
     const imgData = canvas.toDataURL('image/jpeg', 0.9);

@@ -118,7 +118,7 @@ export class TouchGestureManager {
       // Calcular Zoom
       if (this.initialPinchDistance > 10) {
         const scaleFactor = currentDistance / this.initialPinchDistance;
-        const newScale = Math.min(3.0, Math.max(0.5, this.initialTransform.scale * scaleFactor));
+        const newScale = Math.min(5.0, Math.max(0.2, this.initialTransform.scale * scaleFactor));
 
         // Calcular Paneo
         const currentMidX = (t1.x + t2.x) / 2;
@@ -130,7 +130,7 @@ export class TouchGestureManager {
         const deltaY = currentMidY - initialMidY;
 
         this.currentTransform = {
-          scale: Number(newScale.toFixed(2)),
+          scale: Number(newScale.toFixed(3)),
           x: Math.round(this.initialTransform.x + deltaX),
           y: Math.round(this.initialTransform.y + deltaY),
         };

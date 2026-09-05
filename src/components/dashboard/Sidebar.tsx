@@ -1,439 +1,210 @@
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import {
-  Folder as FolderIcon,
-  Zap,
-  Pin,
-  Trash,
   Plus,
-  X,
+  Trash2,
   Download,
   Upload,
+  Sun,
+  Moon,
   BookOpen,
+  Pin,
 } from 'lucide-react';
 import { Folder } from '../../types';
+import { useTheme } from '../../context/ThemeContext';
 import { exportBackupFile, importBackupFile } from '../../utils/backupManager';
-import { InstallPromptBanner } from '../common/InstallPromptBanner';
 
 interface SidebarProps {
   folders: Folder[];
-  activeCategory: string;
-  onSelectCategory: (categoryId: string) => void;
-  notesCountByCategory: Record<string, number>;
-  onCreateFolder: (name: string, color?: string, icon?: string) => void;
-  onDeleteFolder: (folderId: string) => void;
-  isOpen: boolean;
-  onClose?: () => void;
-  onBackupRestored?: () => void;
+  activeFolderId: string;
+  onSelectFolder: (id: string) => void;
+  onCreateFolder: (name: string, icon?: string) => void;
+  onDeleteFolder?: (id: string) => void;
+  onDataImported?: () => void;
 }
-
-const SUBJECT_PRESETS = [
-  { name: 'Matemáticas 📐', color: '#007AFF', icon: 'calculator' },
-  { name: 'Lengua 📖', color: '#34C759', icon: 'book' },
-  { name: 'Ciencias 🔬', color: '#AF52DE', icon: 'flask' },
-  { name: 'Historia 🌍', color: '#FF9500', icon: 'globe' },
-  { name: 'Arte 🎨', color: '#FF2D55', icon: 'palette' },
-  { name: 'Tecnología 💻', color: '#5856D6', icon: 'laptop' },
-];
-
-const FOLDER_COLORS = [
-  '#007AFF',
-  '#34C759',
-  '#FF9500',
-  '#AF52DE',
-  '#FF2D55',
-  '#5856D6',
-  '#E4A11B',
-  '#1C1C1E',
-];
 
 export const Sidebar: React.FC<SidebarProps> = ({
   folders,
-  activeCategory,
-  onSelectCategory,
-  notesCountByCategory,
+  activeFolderId,
+  onSelectFolder,
   onCreateFolder,
   onDeleteFolder,
-  isOpen,
-  onClose,
-  onBackupRestored,
+  onDataImported,
 }) => {
-  const [showNewFolderModal, setShowNewFolderModal] = useState(false);
+  const { isDark, toggleTheme } = useTheme();
   const [newFolderName, setNewFolderName] = useState('');
-  const [selectedColor, setSelectedColor] = useState('#007AFF');
-  const backupInputRef = useRef<HTMLInputElement>(null);
+  const [isCreatingFolder, setIsCreatingFolder] = useState(false);
 
-  const handleCreateFolderSubmit = (e: React.FormEvent) => {
+  const handleCreateSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (newFolderName.trim()) {
-      onCreateFolder(newFolderName.trim(), selectedColor);
-      setNewFolderName('');
-      setShowNewFolderModal(false);
-    }
+    if (!newFolderName.trim()) return;
+    onCreateFolder(newFolderName.trim());
+    setNewFolderName('');
+    setIsCreatingFolder(false);
   };
 
-  const handleExportBackup = async () => {
-    try {
-      await exportBackupFile();
-    } catch (err) {
-      alert('Error al exportar copia de seguridad.');
-    }
-  };
-
-  const handleRestoreFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
-    if (
-      window.confirm(
-        '¿Deseas restaurar esta copia de seguridad? Las notas se integrarán en tu biblioteca.'
-      )
-    ) {
-      try {
-        const result = await importBackupFile(file, 'merge');
-        alert(
-          `¡Copia restaurada exitosamente!\nSe han cargado ${result.notesCount} notas y ${result.foldersCount} carpetas.`
-        );
-        onBackupRestored?.();
-      } catch (err: unknown) {
-        alert((err as Error).message || 'Error al restaurar archivo de respaldo.');
-      }
+    try {
+      await importBackupFile(file);
+      onDataImported?.();
+    } catch (err) {
+      console.error('Error importando datos:', err);
     }
     e.target.value = '';
   };
 
-  const systemCategories = [
-    {
-      id: 'all',
-      name: 'Todas las notas',
-      icon: FolderIcon,
-      color: '#E4A11B',
-      count: notesCountByCategory['all'] || 0,
-    },
-    {
-      id: 'quick',
-      name: 'Notas rápidas',
-      icon: Zap,
-      color: '#FF9500',
-      count: notesCountByCategory['quick'] || 0,
-    },
-    {
-      id: 'pinned',
-      name: 'Fijadas',
-      icon: Pin,
-      color: '#FFCC00',
-      count: notesCountByCategory['pinned'] || 0,
-    },
-  ];
-
-  const customFolders = folders.filter((f) => !f.isSystem && f.id !== 'all' && f.id !== 'quick');
-  const trashCount = notesCountByCategory['trash'] || 0;
-
   return (
-    <>
-      {/* Input oculto para restaurar respaldo */}
-      <input
-        ref={backupInputRef}
-        type="file"
-        accept=".notesbackup, .json"
-        onChange={handleRestoreFileSelected}
-        className="hidden"
-      />
-
-      {/* Overlay para móviles/tablets */}
-      {isOpen && (
-        <div
-          onClick={onClose}
-          className="fixed inset-0 bg-black/20 backdrop-blur-xs z-30 lg:hidden"
-        />
-      )}
-
-      <aside
-        className={`fixed lg:static top-0 bottom-0 left-0 z-40 w-64 sm:w-72 bg-ios-sidebar border-r border-ios-border flex flex-col transition-transform duration-200 ease-out select-none ${
-          isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
-        }`}
-      >
-        {/* Header de la Sidebar */}
-        <div className="p-4 flex items-center justify-between border-b border-ios-borderSubtle">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-xl bg-ios-yellow flex items-center justify-center text-white font-bold shadow-ios-sm">
-              📝
-            </div>
-            <div>
-              <h2 className="text-base font-bold text-ios-text tracking-tight leading-none">
-                Apple Notes
-              </h2>
-              <span className="text-[11px] font-medium text-ios-yellow">Escolar & Táctil</span>
-            </div>
+    <aside className="w-64 shrink-0 h-screen flex flex-col bg-ios-sidebar dark:bg-ios-darkSidebar border-r border-ios-border/80 dark:border-ios-darkBorder/80 text-ios-text dark:text-ios-darkText font-sans select-none transition-colors">
+      {/* Cabecera Sidebar */}
+      <div className="p-4 flex items-center justify-between border-b border-ios-border/50 dark:border-ios-darkBorder/50">
+        <div className="flex items-center gap-2">
+          <div className="w-7 h-7 rounded-lg bg-ios-yellow flex items-center justify-center text-white font-bold text-sm shadow-ios">
+            
           </div>
+          <span className="font-extrabold text-sm tracking-tight">Notas Escolares</span>
+        </div>
+      </div>
 
+      {/* Lista de Carpetas / Materias */}
+      <div className="flex-1 overflow-y-auto px-3 py-3 space-y-1">
+        <div className="text-[11px] font-bold text-ios-textTertiary dark:text-ios-darkTextTertiary uppercase tracking-wider px-2.5 py-1">
+          Secciones
+        </div>
+
+        {/* Todas las Notas */}
+        <button
+          type="button"
+          onClick={() => onSelectFolder('all')}
+          className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all ${
+            activeFolderId === 'all'
+              ? 'bg-ios-yellow text-white shadow-ios'
+              : 'text-ios-textSecondary dark:text-ios-darkTextSecondary hover:bg-ios-gray6 dark:hover:bg-ios-darkBg'
+          }`}
+        >
+          <BookOpen size={16} />
+          <span>Todas las notas</span>
+        </button>
+
+        {/* Notas Fijadas */}
+        <button
+          type="button"
+          onClick={() => onSelectFolder('pinned')}
+          className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all ${
+            activeFolderId === 'pinned'
+              ? 'bg-ios-yellow text-white shadow-ios'
+              : 'text-ios-textSecondary dark:text-ios-darkTextSecondary hover:bg-ios-gray6 dark:hover:bg-ios-darkBg'
+          }`}
+        >
+          <Pin size={16} />
+          <span>Fijadas</span>
+        </button>
+
+        <div className="pt-3 pb-1 flex items-center justify-between px-2.5">
+          <span className="text-[11px] font-bold text-ios-textTertiary dark:text-ios-darkTextTertiary uppercase tracking-wider">
+            Materias
+          </span>
           <button
-            onClick={onClose}
-            className="lg:hidden p-1.5 text-ios-textSecondary hover:text-ios-text rounded-lg hover:bg-ios-gray5"
+            type="button"
+            onClick={() => setIsCreatingFolder(true)}
+            className="text-ios-yellow hover:text-ios-yellowHover p-0.5 rounded transition-colors"
+            title="Añadir materia"
           >
-            <X size={18} />
+            <Plus size={14} />
           </button>
         </div>
 
-        {/* Lista de navegación */}
-        <div className="flex-1 overflow-y-auto px-2 py-3 space-y-4">
-          {/* Botón de instalación nativa en Chromebook */}
-          <div className="px-1">
-            <InstallPromptBanner variant="button" />
-          </div>
-
-          {/* Secciones de Sistema */}
-          <div className="space-y-0.5">
-            <div className="px-3 py-1 text-[11px] font-semibold text-ios-textTertiary uppercase tracking-wider">
-              Principal
-            </div>
-            {systemCategories.map((cat) => {
-              const Icon = cat.icon;
-              const isActive = activeCategory === cat.id;
-              return (
-                <button
-                  key={cat.id}
-                  onClick={() => {
-                    onSelectCategory(cat.id);
-                    onClose?.();
-                  }}
-                  className={`w-full flex items-center justify-between px-3 py-2 rounded-ios text-sm font-medium transition-all ${
-                    isActive
-                      ? 'bg-ios-yellow text-white shadow-ios-sm font-semibold'
-                      : 'text-ios-text hover:bg-ios-gray5'
-                  }`}
-                >
-                  <div className="flex items-center gap-2.5">
-                    <Icon size={18} style={{ color: isActive ? '#FFFFFF' : cat.color }} />
-                    <span>{cat.name}</span>
-                  </div>
-                  <span
-                    className={`text-xs px-2 py-0.5 rounded-full ${
-                      isActive ? 'bg-white/20 text-white font-bold' : 'text-ios-textSecondary bg-ios-gray5'
-                    }`}
-                  >
-                    {cat.count}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Carpetas / Materias Escolares */}
-          <div className="space-y-0.5">
-            <div className="flex items-center justify-between px-3 py-1">
-              <span className="text-[11px] font-semibold text-ios-textTertiary uppercase tracking-wider">
-                Cuadernos / Materias
-              </span>
-              <button
-                onClick={() => setShowNewFolderModal(true)}
-                className="text-ios-yellow hover:text-ios-yellowHover p-1 rounded hover:bg-ios-yellowLight transition-colors"
-                title="Nueva Materia / Carpeta"
-              >
-                <Plus size={15} />
-              </button>
-            </div>
-
-            {customFolders.length === 0 ? (
-              <div className="px-3 py-2 text-xs text-ios-textSecondary italic">
-                Sin carpetas de materias
-              </div>
-            ) : (
-              customFolders.map((folder) => {
-                const isActive = activeCategory === folder.id;
-                const count = notesCountByCategory[folder.id] || 0;
-                return (
-                  <div
-                    key={folder.id}
-                    className={`group/folder w-full flex items-center justify-between px-3 py-2 rounded-ios text-sm font-medium transition-all ${
-                      isActive
-                        ? 'bg-ios-yellow text-white shadow-ios-sm font-semibold'
-                        : 'text-ios-text hover:bg-ios-gray5'
-                    }`}
-                  >
-                    <button
-                      onClick={() => {
-                        onSelectCategory(folder.id);
-                        onClose?.();
-                      }}
-                      className="flex items-center gap-2.5 truncate flex-1 text-left"
-                    >
-                      <span
-                        className="w-3 h-3 rounded-full shrink-0"
-                        style={{ backgroundColor: folder.color || '#007AFF' }}
-                      />
-                      <span className="truncate">{folder.name}</span>
-                    </button>
-
-                    <div className="flex items-center gap-1">
-                      <span
-                        className={`text-xs px-2 py-0.5 rounded-full ${
-                          isActive ? 'bg-white/20 text-white font-bold' : 'text-ios-textSecondary bg-ios-gray5'
-                        }`}
-                      >
-                        {count}
-                      </span>
-                      {!folder.isSystem && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (window.confirm(`¿Eliminar cuaderno "${folder.name}"?`)) {
-                              onDeleteFolder(folder.id);
-                            }
-                          }}
-                          className="opacity-0 group-hover/folder:opacity-100 p-0.5 hover:text-ios-red rounded transition-opacity"
-                          title="Eliminar cuaderno"
-                        >
-                          <X size={12} />
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                );
-              })
-            )}
-          </div>
-
-          {/* Papelera */}
-          <div className="pt-2 border-t border-ios-borderSubtle">
-            <button
-              onClick={() => {
-                onSelectCategory('trash');
-                onClose?.();
+        {/* Formulario para crear carpeta */}
+        {isCreatingFolder && (
+          <form onSubmit={handleCreateSubmit} className="px-1 py-1">
+            <input
+              type="text"
+              autoFocus
+              value={newFolderName}
+              onChange={(e) => setNewFolderName(e.target.value)}
+              placeholder="Nombre de materia..."
+              className="w-full text-xs px-2.5 py-1.5 bg-ios-card dark:bg-ios-darkCard rounded-xl border border-ios-yellow outline-none text-ios-text dark:text-ios-darkText"
+              onBlur={() => {
+                if (!newFolderName.trim()) setIsCreatingFolder(false);
               }}
-              className={`w-full flex items-center justify-between px-3 py-2 rounded-ios text-sm font-medium transition-all ${
-                activeCategory === 'trash'
-                  ? 'bg-ios-red text-white shadow-ios-sm font-semibold'
-                  : 'text-ios-textSecondary hover:text-ios-red hover:bg-red-50'
-              }`}
-            >
-              <div className="flex items-center gap-2.5">
-                <Trash size={18} />
-                <span>Papelera</span>
-              </div>
-              <span className="text-xs">{trashCount}</span>
-            </button>
-          </div>
-
-          {/* Respaldo y Migración Local */}
-          <div className="pt-2 border-t border-ios-borderSubtle space-y-1">
-            <div className="px-3 py-1 text-[11px] font-semibold text-ios-textTertiary uppercase tracking-wider">
-              Respaldo Escolar
-            </div>
-            <button
-              onClick={handleExportBackup}
-              className="w-full flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium text-ios-text hover:bg-ios-gray5 transition-colors"
-              title="Descargar copia de seguridad .notesbackup"
-            >
-              <Download size={14} className="text-ios-yellow" />
-              <span>Hacer copia (.notesbackup)</span>
-            </button>
-            <button
-              onClick={() => backupInputRef.current?.click()}
-              className="w-full flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium text-ios-text hover:bg-ios-gray5 transition-colors"
-              title="Restaurar notas desde un archivo de respaldo"
-            >
-              <Upload size={14} className="text-ios-blue" />
-              <span>Restaurar copia</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Footer */}
-        <div className="p-3 border-t border-ios-borderSubtle bg-ios-gray6/50 flex items-center justify-between text-xs text-ios-textSecondary">
-          <div className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-ios-green animate-pulse" />
-            <span className="font-medium">IndexedDB Offline</span>
-          </div>
-          <span className="text-[11px] text-ios-textTertiary">Chromebook Ready</span>
-        </div>
-
-        {/* Modal para crear cuaderno */}
-        {showNewFolderModal && (
-          <div
-            className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-150"
-            onClick={() => setShowNewFolderModal(false)}
-          >
-            <div
-              className="bg-ios-card rounded-ios-lg shadow-ios-floating p-5 w-full max-w-sm border border-ios-border"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex items-center gap-2 mb-3 text-ios-text font-bold text-base">
-                <BookOpen className="text-ios-yellow" size={20} />
-                <h3>Nuevo Cuaderno / Materia</h3>
-              </div>
-
-              <div className="mb-3">
-                <span className="text-[11px] font-semibold text-ios-textTertiary uppercase mb-1.5 block">
-                  Materias sugeridas
-                </span>
-                <div className="flex flex-wrap gap-1">
-                  {SUBJECT_PRESETS.map((preset) => (
-                    <button
-                      key={preset.name}
-                      type="button"
-                      onClick={() => {
-                        setNewFolderName(preset.name);
-                        setSelectedColor(preset.color);
-                      }}
-                      className="text-xs bg-ios-bg hover:bg-ios-gray5 px-2 py-1 rounded-md border border-ios-borderSubtle transition-colors flex items-center gap-1"
-                    >
-                      <span className="w-2 h-2 rounded-full" style={{ backgroundColor: preset.color }} />
-                      <span>{preset.name}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <form onSubmit={handleCreateFolderSubmit}>
-                <input
-                  type="text"
-                  value={newFolderName}
-                  onChange={(e) => setNewFolderName(e.target.value)}
-                  placeholder="Nombre de la materia (ej. Física ⚡)..."
-                  autoFocus
-                  className="w-full px-3 py-2 text-sm bg-ios-bg border border-ios-border rounded-lg outline-none focus:border-ios-yellow mb-3"
-                />
-
-                <div className="mb-4">
-                  <span className="text-[11px] font-semibold text-ios-textTertiary uppercase mb-1.5 block">
-                    Color del cuaderno
-                  </span>
-                  <div className="flex items-center gap-2">
-                    {FOLDER_COLORS.map((c) => (
-                      <button
-                        key={c}
-                        type="button"
-                        onClick={() => setSelectedColor(c)}
-                        className={`w-6 h-6 rounded-full transition-transform ${
-                          selectedColor === c ? 'ring-2 ring-ios-yellow ring-offset-2 scale-110' : 'hover:scale-105'
-                        }`}
-                        style={{ backgroundColor: c }}
-                      />
-                    ))}
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-end gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setShowNewFolderModal(false)}
-                    className="px-3 py-1.5 rounded-lg text-xs font-medium text-ios-textSecondary hover:bg-ios-gray6"
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={!newFolderName.trim()}
-                    className="px-4 py-1.5 rounded-lg text-xs font-semibold bg-ios-yellow text-white hover:bg-ios-yellowHover disabled:opacity-50 shadow-sm"
-                  >
-                    Crear Cuaderno
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
+            />
+          </form>
         )}
-      </aside>
-    </>
+
+        {/* Carpetas personalizadas */}
+        {folders.map((f) => {
+          const isSelected = activeFolderId === f.id;
+          return (
+            <div
+              key={f.id}
+              className={`group flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold cursor-pointer transition-all ${
+                isSelected
+                  ? 'bg-ios-yellow text-white shadow-ios'
+                  : 'text-ios-textSecondary dark:text-ios-darkTextSecondary hover:bg-ios-gray6 dark:hover:bg-ios-darkBg'
+              }`}
+              onClick={() => onSelectFolder(f.id)}
+            >
+              <div className="flex items-center gap-2 truncate">
+                <span>{f.icon || '📁'}</span>
+                <span className="truncate">{f.name}</span>
+              </div>
+
+              {onDeleteFolder && !f.isSystem && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onDeleteFolder(f.id);
+                  }}
+                  className={`opacity-0 group-hover:opacity-100 p-0.5 rounded hover:text-ios-red transition-opacity ${
+                    isSelected ? 'text-white/80' : 'text-ios-textTertiary'
+                  }`}
+                  title="Eliminar carpeta"
+                >
+                  <Trash2 size={12} />
+                </button>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Pie con Copia de Seguridad & Tema */}
+      <div className="p-3 border-t border-ios-border/50 dark:border-ios-darkBorder/50 space-y-1.5">
+        <button
+          type="button"
+          onClick={exportBackupFile}
+          className="w-full flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-medium text-ios-textSecondary dark:text-ios-darkTextSecondary hover:bg-ios-gray6 dark:hover:bg-ios-darkBg transition-colors"
+        >
+          <Download size={14} />
+          <span>Copia de seguridad (.notesbackup)</span>
+        </button>
+
+        <label className="w-full flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-medium text-ios-textSecondary dark:text-ios-darkTextSecondary hover:bg-ios-gray6 dark:hover:bg-ios-darkBg cursor-pointer transition-colors">
+          <Upload size={14} />
+          <span>Restaurar datos</span>
+          <input
+            type="file"
+            accept=".notesbackup,.json"
+            onChange={handleImportFile}
+            className="hidden"
+          />
+        </label>
+
+        <button
+          type="button"
+          onClick={toggleTheme}
+          className="w-full flex items-center justify-between px-3 py-1.5 rounded-xl text-xs font-medium text-ios-textSecondary dark:text-ios-darkTextSecondary hover:bg-ios-gray6 dark:hover:bg-ios-darkBg transition-colors"
+        >
+          <span className="flex items-center gap-2">
+            {isDark ? <Sun size={14} className="text-ios-yellow" /> : <Moon size={14} />}
+            <span>{isDark ? 'Modo Claro' : 'Modo Oscuro'}</span>
+          </span>
+          <span className="text-[10px] uppercase font-bold text-ios-yellow">
+            {isDark ? 'DARK' : 'LIGHT'}
+          </span>
+        </button>
+      </div>
+    </aside>
   );
 };
